@@ -1,0 +1,279 @@
+specVersion: 0.0.2
+description: Notional Subgraph
+repository: https://github.com/notional-finance/notional
+schema:
+    file: ./schema.graphql
+dataSources:
+    - kind: ethereum/contract
+      name: Portfolios
+      network: {{ networkName }}
+      source:
+          address: "{{ portfolios }}"
+          abi: Portfolios
+          startBlock: {{ startBlock }}
+      mapping:
+          kind: ethereum/events
+          apiVersion: 0.0.1
+          language: wasm/assemblyscript
+          entities:
+              - CashGroup 
+              - SystemConfiguration
+              # Used for settling accounts
+              - Account
+              - Asset
+              - CurrencyBalance
+          abis:
+              - name: Portfolios
+                file: ../contracts/build/Portfolios.json
+              - name: CashMarket 
+                file: ../contracts/build/CashMarket.json
+              - name: Escrow
+                file: ./Escrow-HACK-GRAPH_NODE-1790.json
+              - name: ERC1155Token
+                file: ../contracts/build/ERC1155Token.json
+          eventHandlers:
+              # Create / Update Cash Group
+              - event: NewCashGroup(indexed uint8)
+                handler: handleNewCashGroup
+              - event: UpdateCashGroup(indexed uint8)
+                handler: handleUpdateCashGroup
+              - event: SetMaxAssets(uint256)
+                handler: updateMaxAssets
+              - event: SetHaircuts(uint128,uint128,uint128)
+                handler: updateHaircuts
+              # Settle Account
+              - event: SettleAccount(address)
+                handler: handleSettleAccount
+              - event: SettleAccountBatch(address[])
+                handler: handleSettleAccountBatch
+          file: ./src/portfolios.ts
+
+    - kind: ethereum/contract
+      name: Escrow
+      network: {{ networkName }}
+      source:
+          address: "{{ escrow }}"
+          abi: Escrow
+          startBlock: {{ startBlock }}
+      mapping:
+          kind: ethereum/events
+          apiVersion: 0.0.1
+          language: wasm/assemblyscript
+          entities:
+              - Currency
+              - ExchangeRate
+              - SystemConfiguration
+              - Account
+              - CurrencyBalance
+          abis:
+              - name: Escrow
+                file: ./Escrow-HACK-GRAPH_NODE-1790.json
+              - name: ERC20
+                file: ../contracts/build/IERC20.json
+              - name: Portfolios
+                file: ../contracts/build/Portfolios.json
+              - name: CashMarket
+                file: ../contracts/build/CashMarket.json
+              - name: ERC1155Token
+                file: ../contracts/build/ERC1155Token.json
+              - name: IAggregator
+                file: ../contracts/build/IAggregator.json
+          eventHandlers:
+              # Create Currency
+              - event: NewCurrency(indexed address)
+                handler: handleNewCurrency
+              # Create / Update Exchange Rate
+              - event: UpdateExchangeRate(indexed uint16,indexed uint16)
+                handler: handleUpdateExchangeRate
+              # Deposit / Withdraw
+              - event: Deposit(indexed uint16,address,uint256)
+                handler: handleDeposit
+              - event: Withdraw(indexed uint16,address,uint256)
+                handler: handleWithdraw
+              # Update System Parameters
+              - event: SetDiscounts(uint128,uint128,uint128)
+                handler: updateDiscounts
+              - event: SetReserve(address)
+                handler: updateReserveAccount
+          file: ./src/escrow.ts
+
+    - kind: ethereum/contract
+      name: EscrowSettleLiquidate
+      network: {{ networkName }}
+      source:
+          address: "{{ escrow }}"
+          abi: Escrow
+          startBlock: {{ startBlock }}
+      mapping:
+          kind: ethereum/events
+          apiVersion: 0.0.1
+          language: wasm/assemblyscript
+          entities:
+              - Account
+              - Asset
+              - CurrencyBalance
+              - Liquidation
+              - Settlement
+              - Trade
+          abis:
+              - name: Escrow
+                file: ./Escrow-HACK-GRAPH_NODE-1790.json
+              - name: Portfolios
+                file: ../contracts/build/Portfolios.json
+              - name: CashMarket
+                file: ../contracts/build/CashMarket.json
+              - name: ERC1155Token
+                file: ../contracts/build/ERC1155Token.json
+          eventHandlers:
+              - event: Liquidate(indexed uint16,uint16,address,uint128)
+                handler: handleLiquidate
+              - event: LiquidateBatch(indexed uint16,uint16,address[],uint128[])
+                handler: handleLiquidateBatch
+              - event: SettleCash(uint16,uint16,indexed address,uint128)
+                handler: handleSettleCash
+              - event: SettleCashBatch(uint16,uint16,address[],uint128[])
+                handler: handleSettleCashBatch
+          file: ./src/escrowSettleLiquidate.ts
+
+    - kind: ethereum/contract
+      name: CashMarket
+      network: {{ networkName }}
+      source:
+          # We don't specify a source address here because there may be multiple cash markets.
+          abi: CashMarket
+          startBlock: {{ startBlock }}
+      mapping:
+          kind: ethereum/events
+          apiVersion: 0.0.1
+          language: wasm/assemblyscript
+          entities:
+              - Account
+              - CurrencyBalance
+              - Asset
+              - Trade
+              - CashMarket
+              - CashGroup
+          abis:
+              - name: Escrow
+                file: ./Escrow-HACK-GRAPH_NODE-1790.json
+              - name: Portfolios
+                file: ../contracts/build/Portfolios.json
+              - name: CashMarket
+                file: ../contracts/build/CashMarket.json
+              - name: ERC1155Token
+                file: ../contracts/build/ERC1155Token.json
+          eventHandlers:
+              # Add / Remove Liquidity
+              - event: AddLiquidity(indexed address,uint32,uint128,uint128,uint128)
+                handler: handleAddLiquidity
+              - event: RemoveLiquidity(indexed address,uint32,uint128,uint128,uint128)
+                handler: handleRemoveLiquidity
+              # Trade
+              - event: TakeCurrentCash(indexed address,uint32,uint128,uint128,uint128)
+                handler: handleTakeCurrentCash
+              - event: TakefCash(indexed address,uint32,uint128,uint128,uint128)
+                handler: handleTakefCash
+              # Update Market Parameters
+              - event: UpdateRateFactors(uint32,uint16)
+                handler: handleRateFactors
+              - event: UpdateMaxTradeSize(uint128)
+                handler: handleMaxTradeSize
+              - event: UpdateFees(uint32,uint128)
+                handler: handleFees
+          file: ./src/cashMarket.ts
+
+    - kind: ethereum/contract
+      name: ERC1155Token
+      network: {{ networkName }}
+      source:
+          address: "{{ erc1155 }}"
+          abi: ERC1155Token
+          startBlock: {{ startBlock }}
+      mapping:
+          kind: ethereum/events
+          apiVersion: 0.0.1
+          language: wasm/assemblyscript
+          entities:
+              - Asset
+              - Account
+          eventHandlers:
+              - event: TransferSingle(indexed address,indexed address,indexed address,uint256,uint256)
+                handler: handleTransferSingle
+              - event: TransferBatch(indexed address,indexed address,indexed address,uint256[],uint256[])
+                handler: handleTransferBatch
+          abis:
+              - name: ERC1155Token
+                file: ../contracts/build/ERC1155Token.json
+              - name: Escrow
+                file: ./Escrow-HACK-GRAPH_NODE-1790.json
+              - name: Portfolios
+                file: ../contracts/build/Portfolios.json
+          file: ./src/erc1155.ts
+
+    - kind: ethereum/contract
+      name: ERC1155Trade
+      network: {{ networkName }}
+      source:
+          address: "{{ erc1155 }}"
+          abi: ERC1155Trade
+          startBlock: {{ startBlock }}
+      mapping:
+          kind: ethereum/events
+          apiVersion: 0.0.1
+          language: wasm/assemblyscript
+          entities:
+              - Asset
+              - Account
+          eventHandlers:
+              - event: TransferSingle(indexed address,indexed address,indexed address,uint256,uint256)
+                handler: handleTransferSingle
+          abis:
+              - name: ERC1155Trade
+                file: ../contracts/build/ERC1155Trade.json
+              - name: Escrow
+                file: ./Escrow-HACK-GRAPH_NODE-1790.json
+              - name: Portfolios
+                file: ../contracts/build/Portfolios.json
+          file: ./src/erc1155trade.ts
+
+    - kind: ethereum/contract
+      name: Directory
+      network: {{ networkName }}
+      source:
+          address: "{{ directory }}"
+          abi: Directory
+          startBlock: {{ startBlock }}
+      mapping:
+          kind: ethereum/events
+          apiVersion: 0.0.1
+          language: wasm/assemblyscript
+          entities:
+              - Directory
+          eventHandlers:
+              - event: SetContract(uint8,address)
+                handler: updateDirectoryAddress
+          abis:
+              - name: Directory
+                file: ../contracts/build/Directory.json
+          file: ./src/directory.ts
+    
+    - kind: ethereum/contract
+      name: PriceOracle
+      network: {{ networkName }}
+      source:
+          abi: IAggregator
+          startBlock: {{ startBlock }}
+      mapping:
+          kind: ethereum/events
+          apiVersion: 0.0.1
+          language: wasm/assemblyscript
+          entities:
+              - RateValue
+              - ExchangeRate
+          eventHandlers:
+              - event: AnswerUpdated(indexed int256,indexed uint256,uint256)
+                handler: handleAnswerUpdated 
+          abis:
+              - name: IAggregator
+                file: ../contracts/build/IAggregator.json
+          file: ./src/exchangeRate.ts

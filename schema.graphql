@@ -1,0 +1,423 @@
+enum AssetType {
+    "Obligation to pay fCash"
+    CashPayer
+    "Entitlement to receive fCash"
+    CashReceiver
+    "Represents a share of a liquidity pool"
+    LiquidityToken
+}
+
+type Directory @entity {
+    "Enum number of the contract in the directory"
+    id: ID!
+    lastUpdateBlockHash: Bytes!
+    lastUpdateBlockNumber: Int!
+    lastUpdateTimestamp: Int!
+    lastUpdateTransactionHash: Bytes!
+
+    "Address of the contract referred to in the directory"
+    contractAddress: Bytes!
+}
+
+type Account @entity {
+    "Ethereum address of the account"
+    id: ID!
+    lastUpdateBlockHash: Bytes!
+    lastUpdateBlockNumber: Int!
+    lastUpdateTimestamp: Int!
+    lastUpdateTransactionHash: Bytes!
+
+    "Cash balances held by account"
+    balances: [CurrencyBalance!]!
+    "Account's portfolio of assets at this block height"
+    portfolio: [Asset!]!
+}
+
+type CurrencyBalance @entity {
+    "Currency balances of a single account, referenced by account:currencyId"
+    id: ID!
+    lastUpdateBlockHash: Bytes!
+    lastUpdateBlockNumber: Int!
+    lastUpdateTimestamp: Int!
+    lastUpdateTransactionHash: Bytes!
+
+    "References the currency that this balance is denominated in."
+    currency: Currency!
+    "Cash balance held in this currency"
+    cashBalance: BigInt!
+
+    "Account that holds this balance"
+    account: Account! @derivedFrom(field: "balances")
+}
+
+type Asset @entity {
+    "Asset held in account portfolio, referenced by account:assetId"
+    id: ID!
+    lastUpdateBlockHash: Bytes!
+    lastUpdateBlockNumber: Int!
+    lastUpdateTimestamp: Int!
+    lastUpdateTransactionHash: Bytes!
+
+    "ERC1155 identifier for the asset"
+    assetId: BigInt!
+    "Reference to cash group of the asset"
+    cashGroup: CashGroup!
+    "Timestamp when the asset will mature"
+    maturity: Int!
+    "Category of the asset that dictates its behavior"
+    assetType: AssetType!
+    "Exchange rate of the asset at maturity"
+    rate: Int!
+    "Notional amount of this asset"
+    notional: BigInt!
+
+    "Cash market referenced by this asset if it is fCash or a liquidity token"
+    cashMarket: CashMarket
+
+    "Account that holds this asset"
+    account: Account! @derivedFrom(field: "portfolio")
+}
+
+type Deposit @entity {
+    "Record for a deposit made into an account, id defined by account:currency:transactionHash:logIndex"
+    id: ID!
+    blockNumber: Int!
+    blockTimestamp: Int!
+    blockHash: Bytes!
+    transactionHash: Bytes!
+    gasUsed: BigInt!
+    gasPrice: BigInt!
+
+    "Account that performed the deposit"
+    account: Account!
+    "Currency of the deposit"
+    currency: Currency!
+    "Amount of the deposit"
+    amount: BigInt!
+}
+
+type Withdraw @entity {
+    "Record for a withdraw made from an account, id defined by account:currency:transactionHash:logIndex"
+    id: ID!
+    blockNumber: Int!
+    blockTimestamp: Int!
+    blockHash: Bytes!
+    transactionHash: Bytes!
+    gasUsed: BigInt!
+    gasPrice: BigInt!
+
+    "Account that performed the withdraw"
+    account: Account!
+    "Currency of the withdraw"
+    currency: Currency!
+    "Amount of the withdraw"
+    amount: BigInt!
+}
+
+type Trade @entity {
+    "Trade entered into by an account, id defined by account:assetId:transactionHash:logIndex"
+    id: ID!
+    blockNumber: Int!
+    blockTimestamp: Int!
+    blockHash: Bytes!
+    transactionHash: Bytes!
+    gasUsed: BigInt!
+    gasPrice: BigInt!
+
+    "Account that performed the trade"
+    account: Account!
+
+    "ERC1155 identifier for the asset"
+    assetId: BigInt!
+    "Reference to cash group of the asset"
+    cashGroup: CashGroup!
+    "Maturity of the asset"
+    maturity: Int!
+    "Category of the asset that dictates its behavior"
+    assetType: AssetType!
+
+    "Exchange rate of the asset at maturity"
+    rate: BigDecimal!
+    "Notional amount of this asset"
+    notional: BigInt!
+    "The address of the cash market where this was traded"
+    cashMarket: CashMarket
+    "Fee paid to the protocol when trading fCash"
+    fee: BigInt!
+
+    "Interest rate implied by this trade normalized over the maturity, null for adding and removing liquidity"
+    impliedInterestRate: BigDecimal
+    "Exchange rate between cash and fCash for this trade, null for adding and removing liquidity"
+    tradeExchangeRate: BigDecimal
+    "Postive or negative balance change of the referenced currency from the transaction"
+    netCashChange: BigInt!
+}
+
+type Settlement @entity {
+    "Settlements of debts, defined by payerAccount:transactionHash:logIndex"
+    id: ID!
+    blockNumber: Int!
+    blockTimestamp: Int!
+    blockHash: Bytes!
+    transactionHash: Bytes!
+    gasUsed: BigInt!
+    gasPrice: BigInt!
+
+    "Account that submitted the transaction to settle"
+    settleAccount: Account!
+    "Account that paid currency to the receiver"
+    payerAccount: Account!
+
+    "Local currency that the debt was settled in"
+    localCurrency: Currency!
+    "Amount of local currency settled in the transaction"
+    settledAmount: BigInt!
+
+    "Collateral currency (if any) that was sold to settle the debt"
+    collateralCurrency: Currency
+    "Amount of deposit currency (if any) that was sold to settle the debt"
+    collateralCurrencyPurchased: BigInt
+    "Exchange rate between the deposit currency and the local currency"
+    exchangeRate: BigDecimal
+
+    "Assets of the payer traded (if any) when settling cash"
+    assetsTraded: [Asset!]
+    "Reserve balance was used to settle in the event of insolvancy"
+    reserveAccountUsed: Boolean!
+}
+
+type Liquidation @entity {
+    "Liquidation of an account, defined by liquidatedAccount:transactionHash:logIndex"
+    id: ID!
+    blockNumber: Int!
+    blockTimestamp: Int!
+    blockHash: Bytes!
+    transactionHash: Bytes!
+    gasUsed: BigInt!
+    gasPrice: BigInt!
+
+    "Account that triggered the liquidation"
+    liquidator: Account!
+    "Account that was liquidated"
+    liquidatedAccount: Account!
+
+    "Local currency that the liquidation occured in"
+    localCurrency: Currency!
+    "Amount of local currency liquidated in the transaction"
+    liquidatedAmount: BigInt!
+
+    "Collateral currency that was sold to cover the debt"
+    collateralCurrency: Currency!
+    "Amount of deposit currency purchased by the liquidator during liquidation"
+    collateralCurrencyPurchased: BigInt!
+    "Exchange rate between the deposit currency and the local currency"
+    exchangeRate: BigDecimal
+
+    "Assets of the liquidated account traded (if any) to reduce risk"
+    assetsTraded: [Trade!]
+}
+
+type Transfer @entity {
+    """
+     id is fromAccount:toAccount:assetId:transactionHash:logIndex
+    """
+    id: ID!
+    blockNumber: Int!
+    blockTimestamp: Int!
+    blockHash: Bytes!
+    transactionHash: Bytes!
+    gasUsed: BigInt!
+    gasPrice: BigInt!
+
+    "Account that initiated the transaction"
+    operator: Account!
+
+    "Account that the transfer originates from"
+    from: Account!
+
+    "Account that receives the asset"
+    to: Account!
+
+    "ERC1155 identifier for the transferred asset"
+    assetId: BigInt!
+    "Reference to cash group of the asset"
+    cashGroup: CashGroup!
+    "Category of the asset that dictates its behavior"
+    assetType: AssetType!
+    "Notional amount of this asset"
+    notional: BigInt!
+
+    "Timestamp when the asset will mature"
+    maturity: Int!
+    "Cash market referenced by this asset if it is fCash or a liquidity token"
+    cashMarket: CashMarket
+}
+
+type Currency @entity {
+    """
+     ID is the currency id
+    """
+    id: ID!
+    lastUpdateBlockHash: Bytes!
+    lastUpdateBlockNumber: Int!
+    lastUpdateTimestamp: Int!
+    lastUpdateTransactionHash: Bytes!
+
+    "Name of the currency"
+    name: String!
+    "Symbol of the currency"
+    symbol: String!
+    "Address of the token"
+    tokenAddress: Bytes!
+    "Decimal position of token balances (defaults to 18)"
+    decimals: BigInt!
+    "Does the contract support ERC777"
+    isERC777: Boolean!
+    "Does the contract have transfer fees"
+    hasTransferFee: Boolean!
+
+    "Exchange rates where the currency is the base"
+    baseExchangeRates: [ExchangeRate!] @derivedFrom(field: "baseCurrency")
+    "Exchange rates where the currency is the quote"
+    quoteExchangeRates: [ExchangeRate!] @derivedFrom(field: "quoteCurrency")
+}
+
+type ExchangeRate @entity {
+    "Exchange rate between two currencies, referenced by base currency id:quote currency id"
+    id: ID!
+    lastUpdateBlockHash: Bytes!
+    lastUpdateBlockNumber: Int!
+    lastUpdateTimestamp: Int!
+    lastUpdateTransactionHash: Bytes!
+
+    "Base currency in the exchange rate"
+    baseCurrency: Currency!
+    "Quote currency in the exchange rate"
+    quoteCurrency: Currency!
+    "Rate oracle that is used to reference the exchange rate"
+    rateOracle: Bytes!
+    "Currency buffer used when calculating free collateral"
+    buffer: BigInt!
+    "Decimals of precision for the exchange rate"
+    rateDecimals: BigInt!
+    "Does the exchange rate need to invert"
+    mustInvert: Boolean!
+    "Most recent rate value for the exchange rate"
+    latestRate: RateValue!
+}
+
+type PriceOracle @entity {
+    "Address of a chainlink price oracle, used for reverse lookup"
+    id: ID!
+    "Exchange rate that references this chainlink oracle"
+    exchangeRate: ExchangeRate
+}
+
+type RateValue @entity {
+    "Value of an exchange rate at a point in time, referenced by base currency id:quote currency id"
+    id: ID!
+    lastUpdateBlockHash: Bytes!
+    lastUpdateBlockNumber: Int!
+    lastUpdateTimestamp: Int!
+    lastUpdateTransactionHash: Bytes!
+
+    "Exchange rate that this rate value references"
+    exchangeRate: ExchangeRate!
+    "Value of the rate, only updated on change"
+    rate: BigInt!
+}
+
+type SystemConfiguration @entity {
+    "ID equals the chain id"
+    id: ID!
+    lastUpdateBlockHash: Bytes!
+    lastUpdateBlockNumber: Int!
+    lastUpdateTimestamp: Int!
+    lastUpdateTransactionHash: Bytes!
+
+    "Reserve account used as backstop, set on the Escrow contract"
+    reserveAccount: Bytes
+    "Discount on collateral exchange given to liquidators"
+    liquidationDiscount: BigInt
+    "Discount on collateral exchange given to settlers"
+    settlementDiscount: BigInt
+    "Incentive for liquidating liquidity tokens"
+    liquidityRepoIncentive: BigInt
+    "Haircut applied to liquidity token claims to account for risk"
+    liquidityHaircut: BigInt
+    "Haircut applied to fCash value to account for risk of trading"
+    fCashHaircut: BigInt
+    "Limit for fCashHaircut as value approaches maturity"
+    fCashMaxHaircut: BigInt
+    "Max assets allowed in a portfolio"
+    maxAssets: BigInt
+}
+
+type CashGroup @entity {
+    "Cash group that is referenced by a set of cash markets"
+    id: ID!
+    lastUpdateBlockHash: Bytes!
+    lastUpdateBlockNumber: Int!
+    lastUpdateTimestamp: Int!
+    lastUpdateTransactionHash: Bytes!
+
+    "Number of forward maturities that an cash group can trade"
+    numMaturities: Int!
+    "Length of each maturity in terms of seconds"
+    maturityLength: Int!
+    "Decimals in the interest rate"
+    ratePrecision: BigInt!
+    "Local currency that all trades occur in for this cash group"
+    currency: Currency!
+    """
+    If true, this cash group is idiosyncratic, meaning that there is no on
+    chain cash market and fCash of any maturity up to periodSize can be minted off chain.
+    """
+    isIdiosyncratic: Boolean!
+
+    "Cash market referenced by this cash group, empty for idiosyncratic cash groups."
+    cashMarketContract: Bytes
+    "Current rate anchor set on the fCash contract"
+    rateAnchor: Int
+    "Current rate scalar set on the fCash contract"
+    rateScalar: Int
+    "Current liquidity set on the fCash contract"
+    liquidityFee: Int
+    "Current max trade size set on the fCash contract"
+    maxTradeSize: BigInt
+    "Current transaction fee set on the fCash contract"
+    transactionFee: BigInt
+
+    "All maturities past and present for this fCash contract"
+    cashMarkets: [CashMarket!]!
+}
+
+type CashMarket @entity {
+    "Marketplace for a single maturity on a fCash contract"
+    id: ID!
+    lastUpdateBlockHash: Bytes!
+    lastUpdateBlockNumber: Int!
+    lastUpdateTimestamp: Int!
+    lastUpdateTransactionHash: Bytes!
+
+    "Address of the parent fCash contract"
+    address: Bytes!
+    "Block height that this market matures at"
+    maturity: Int!
+    "Total available fCash"
+    totalfCash: BigInt!
+    "Total available current cash"
+    totalCurrentCash: BigInt!
+    "Total liquidity tokens in the market"
+    totalLiquidity: BigInt!
+
+    "Rate anchor within this particular cash market"
+    rateAnchor: Int!
+    "Rate scalar within this particular cash market"
+    rateScalar: Int!
+    "Last implied rate the market traded at"
+    lastImpliedRate: Int!
+
+    "Cash group referenced by this cash market"
+    cashGroup: CashGroup! @derivedFrom(field: "cashMarkets")
+}
