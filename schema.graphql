@@ -75,7 +75,7 @@ type Asset @entity {
     cashMarket: CashMarket
 
     "Account that holds this asset"
-    account: Account! @derivedFrom(field: "portfolio")
+    account: Account @derivedFrom(field: "portfolio")
 }
 
 type Deposit @entity {
