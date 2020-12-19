@@ -115,6 +115,9 @@ export function handleTakefCash(event: TakefCash): void {
 export function handleRateFactors(event: UpdateRateFactors): void {
   let cashMarketContract = CashMarketContract.bind(event.address);
   let cashGroupId = cashMarketContract.CASH_GROUP() as i32;
+  // If cash group is not set then exit
+  if (cashGroupId == 0) return;
+
   let cashGroup = getCashGroup(cashGroupId.toString());
   let rateAnchor = event.params.rateAnchor.toI32();
   let rateScalar = event.params.rateScalar;
@@ -144,6 +147,10 @@ export function handleRateFactors(event: UpdateRateFactors): void {
 export function handleMaxTradeSize(event: UpdateMaxTradeSize): void {
   let cashMarketContract = CashMarketContract.bind(event.address);
   let cashGroupId = cashMarketContract.CASH_GROUP() as i32;
+  // If cash group is not set then exit, this is due to setting parameters
+  // on a contract before setting it in the portfolio
+  if (cashGroupId == 0) return;
+
   let cashGroup = getCashGroup(cashGroupId.toString());
   let maxTradeSize = event.params.maxTradeSize;
   
@@ -167,6 +174,10 @@ export function handleMaxTradeSize(event: UpdateMaxTradeSize): void {
 export function handleFees(event: UpdateFees): void {
   let cashMarketContract = CashMarketContract.bind(event.address);
   let cashGroupId = cashMarketContract.CASH_GROUP() as i32;
+  // If cash group is not set then exit, this is due to setting parameters
+  // on a contract before setting it in the portfolio
+  if (cashGroupId == 0) return;
+
   let cashGroup = getCashGroup(cashGroupId.toString());
   let liquidityFee = event.params.liquidityFee.toI32();
   let transactionFee = event.params.transactionFee;
