@@ -149,7 +149,9 @@ export function updateCashGroup(cashGroupId: string, data: ethereum.Event): stri
     cashGroup.maxTradeSize = cashMarketContract.G_MAX_TRADE_SIZE();
 
     // These markets will be initialized as liquidity is added to them.
-    cashGroup.cashMarkets = new Array<string>();
+    if (cashGroup.cashMarkets == null) {
+      cashGroup.cashMarkets = new Array<string>();
+    }
   } else {
     cashGroup.isIdiosyncratic = true;
   }
