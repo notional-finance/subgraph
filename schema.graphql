@@ -302,6 +302,10 @@ type ExchangeRate @entity {
     rateDecimals: BigInt!
     "Does the exchange rate need to invert"
     mustInvert: Boolean!
+    "Amount to haircut positive collateral value"
+    haircut: BigInt!
+    "Discount on collateral exchange given to liquidators"
+    liquidationDiscount: BigInt!
     "Most recent rate value for the exchange rate"
     latestRate: RateValue!
 }
@@ -337,8 +341,6 @@ type SystemConfiguration @entity {
 
     "Reserve account used as backstop, set on the Escrow contract"
     reserveAccount: Bytes
-    "Discount on collateral exchange given to liquidators"
-    liquidationDiscount: BigInt
     "Discount on collateral exchange given to settlers"
     settlementDiscount: BigInt
     "Incentive for liquidating liquidity tokens"

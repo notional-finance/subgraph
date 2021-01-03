@@ -9,16 +9,10 @@ import { getRateValue, setPriceOracle, setRateValue } from "./exchangeRate";
 
 export function updateDiscounts(event: SetDiscounts): void {
   let systemConfiguration = getSystemConfiguration();
-  let liquidationDiscount = event.params.liquidationDiscount;
   let settlementDiscount = event.params.settlementDiscount;
   let repoIncentive = event.params.repoIncentive;
 
   let isUpdated = false;
-  if (systemConfiguration.liquidationDiscount != liquidationDiscount) {
-    systemConfiguration.liquidationDiscount = liquidationDiscount;
-    isUpdated = true;
-  }
-
   if (systemConfiguration.liquidityRepoIncentive != repoIncentive) {
     systemConfiguration.liquidityRepoIncentive = repoIncentive;
     isUpdated = true;
@@ -117,6 +111,8 @@ export function handleUpdateExchangeRate(event: UpdateExchangeRate): void {
   exchangeRate.buffer = erData.buffer;
   exchangeRate.rateDecimals = erData.rateDecimals;
   exchangeRate.mustInvert = erData.mustInvert;
+  exchangeRate.haircut = erData.haircut;
+  exchangeRate.liquidationDiscount = erData.liquidationDiscount;
 
   // Set the price oracle entity for later retrieval
   setPriceOracle(exchangeRate.id, erData.rateOracle);
