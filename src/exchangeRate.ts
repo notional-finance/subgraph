@@ -8,7 +8,10 @@ export function handleAnswerUpdated(event: AnswerUpdated): void {
   if (event.address == Address.fromHexString("0xd866a07dea5ee3c093e21d33660b5579c21f140b")) {
     // DAI / ETH
     priceOracle = getPriceOracle(Address.fromHexString("0x773616e4d11a78f511299002da57a0a94577f1f4") as Address)
-  } else if (event.address == Address.fromHexString("0x00d02526ca08488342ab634de3b2d0050ecc7f60")) {
+  } else if (
+    event.address == Address.fromHexString("0x00d02526ca08488342ab634de3b2d0050ecc7f60") || 
+    event.address == Address.fromHexString("0xe5bbbdb2bb953371841318e1edfbf727447cef2e")
+  ) {
     // USDC / ETH
     priceOracle = getPriceOracle(Address.fromHexString("0x986b5e1e1755e3c2440e960477f25201b0a8bbd4") as Address)
   } else if (event.address == Address.fromHexString("0xbd72da70007e47aaf1bbd84918675392cf6885f7")) {
